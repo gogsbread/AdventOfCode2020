@@ -10,20 +10,17 @@ module part1 =
 
 module part2 =
     let solve input =
-        let a = 
-            input
-            |> Seq.toArray
+        let a = input |> Seq.toArray
 
         let n = a.Length
         seq {
             for i in 0 .. (n - 1) do
                 for j in (i + 1) .. (n - 1) do
-                    for k in (j + 1) .. (n - 1) -> 
-                        (a.[i], a.[j], a.[k])
+                    for k in (j + 1) .. (n - 1) -> (a.[i], a.[j], a.[k])
         }
         |> Seq.pick (fun (x, y, z) ->
             match (x + y + z) with
-            | 2020 -> Some (x * y * z)
+            | 2020 -> Some(x * y * z)
             | _ -> None)
 
 let input = Common.readIn
