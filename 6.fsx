@@ -42,6 +42,4 @@ module part2 =
 
 let input = Common.readIn
 input |> part1.solve |> Common.writeOut
-
 input |> part2.solve |> Common.writeOut
-// input |> part1.parse Set.empty |> List.iter (printfn "%A")
