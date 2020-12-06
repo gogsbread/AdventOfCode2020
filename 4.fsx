@@ -96,6 +96,7 @@ module part1 =
             | _ -> st
         ) 0
 
+// Duplicated a bunch of stuff; didn't want to refactor this guy
 module part2 =
     // Have to do many active patterns instead of a single union active pattern because of <7 limitation
     let (|Byr|_|) (str: string) =
