@@ -23,7 +23,7 @@ module part1 =
         | true ->
             containerMappings.[bag]
             |> List.fold (fun (acc: Set<string>) (b: string) ->
-                if not (acc.Contains(b)) then containersOf b containerMappings (acc.Add b) else acc) knownContainers
+                    containersOf b containerMappings (acc.Add b)) knownContainers
         | false -> knownContainers
 
     let solve (input: List<string>) =
@@ -47,5 +47,18 @@ module part1 =
         containersOf "shiny gold" containerMappings Set.empty
         |> Set.count
 
+module part2 =
+    let solve (input: List<string>) =
+        let rec contains (bag: string) (containerMappings: Map<string, List<Content>>) =
+            List.sumBy (fun c -> c.Count + (c.Count * (contains c.Name containerMappings))) containerMappings.[bag]
+
+        let mappings =
+            input
+            |> List.map parse
+            |> Map.ofList
+
+        contains "shiny gold" mappings
+
 let input = Common.readIn
 input |> part1.solve |> Common.writeOut
+input |> part2.solve |> Common.writeOut
