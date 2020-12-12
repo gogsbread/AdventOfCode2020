@@ -1,4 +1,5 @@
 #load "common.fs"
+// This approach became more verbose than I thought. Part of learning the language :)
 
 open System
 open System.Text.RegularExpressions
