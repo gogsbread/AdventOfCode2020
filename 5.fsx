@@ -21,7 +21,7 @@ let toSection (input: string) =
         | 'B' -> L
         | 'L' -> U
         | 'R' -> L
-        | _ -> raise (InvalidOperationException("Input invalid")))
+        | _ -> invalidArg "Unknown char"
 
 let sections (s: string) =
     let r = s.[0..6]
