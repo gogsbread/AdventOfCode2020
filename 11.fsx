@@ -74,51 +74,48 @@ module part1 =
 
 module part2 =
     let adjacents (r: int) (c: int) (seats: list<list<Seat>>) =
-        // let adj =
-        //     (fun (i, j) ->
-        //         let row = r + i
-        //         let col = c + j
-        //         if row < seats.Length
-        //            && row >= 0
-        //            && col < seats.[0].Length
-        //            && col >= 0
-        //            && (row, col) <> (r, c) then
-        //             Some seats.[row].[col]
-        //         else
-        //             None)
-
-
-        let up =
+        let seatSelector (limit: int) (dir: int * int) =
             seq {
-                for n in seq { 1 .. r } do
-                    for i in [ -1; 0; 1 ] do
-                        (n * i, 0)
+                let x, y = dir
+                for i in seq { 1 .. limit } do
+                    (r + i * x, c + i * y)
             }
             |> Seq.tryPick (fun (i, j) ->
                 let seat = seats.[i].[j]
-                match seat with | Floor -> None | _ -> Some seat)
-        let max =
-            Seq.max [ r
-                      seats.Length - r - 1
-                      c
-                      seats.[0].Length - c - 1 ]
+                match seat with
+                | Floor -> None
+                | _ -> Some seat)
 
-        seq {
-            for n in seq { 1 .. max } do
-                for j in [ -1; 0; 1 ] do
-                    for k in [ -1; 0; 1 ] do
-                        let v = (n * j, n * k)
-                        // printfn "%A" v
-                        v
-        }
-        // let pairs (n: int) = Seq.allPairs [ -n; 0; n ] [ -n; 0; n ]
-        // [ for i in [ 1 .. n ] -> i ]
-        // |> Seq.map pairs
-        // |> Seq.choose adj
+        let up = seatSelector r (-1, 0)
 
-    // Seq.allPairs [ -1; 0; 1 ] [ -1; 0; 1 ]
-    // |> Seq.map
-    // Seq.allPairs [ 0-r .. seats.Length-r-1 ] [ 0-c .. seats.[0].Length-c-1 ]
+        let down =
+            seatSelector (seats.Length - r - 1) (1, 0)
+
+        let left = seatSelector c (0, -1)
+
+        let right =
+            seatSelector (seats.[0].Length - c - 1) (0, 1)
+
+        let diagTL = seatSelector (min r c) (-1, -1)
+
+        let diagTR =
+            seatSelector (min r (seats.[0].Length - c - 1)) (-1, 1)
+
+        let diagBL =
+            seatSelector (min (seats.Length - r - 1) c) (1, -1)
+
+        let diagBR =
+            seatSelector (min (seats.Length - r - 1) (seats.[0].Length - c - 1)) (1, 1)
+
+        [ up
+          down
+          left
+          right
+          diagTL
+          diagTR
+          diagBL
+          diagBR ]
+        |> Seq.choose id
 
     let transform (r: int) (c: int) (seats: list<list<Seat>>) =
         let seat = seats.[r].[c]
@@ -129,11 +126,11 @@ module part2 =
 
             if adjNotOccupied then Occupied else Empty
         | Occupied ->
-            let fourMore =
+            let fiveMore =
                 Seq.sumBy (fun x -> if x = Occupied then 1 else 0) (adjacents r c seats)
                 >= 5
 
-            if fourMore then Empty else Occupied
+            if fiveMore then Empty else Occupied
         | Floor -> Floor
 
     let solve (input: string list) =
@@ -150,21 +147,12 @@ module part2 =
 
             if s <> newSeats then Some(newSeats, newSeats) else None
 
-        let s = Seq.unfold gen seats
-        let e = s.GetEnumerator()
-        e.MoveNext() |> ignore
-        for i in [ 1 .. 2 ] do
-            printfn "%A\n" e.Current
-            e.MoveNext() |> ignore
-// |> Seq.last
-// |> Seq.collect id
-// |> Seq.filter (fun x -> x = Occupied)
-// |> Seq.length
+        Seq.unfold gen seats
+        |> Seq.last
+        |> Seq.collect id
+        |> Seq.filter (fun x -> x = Occupied)
+        |> Seq.length
 
 let input = Common.readIn
-// input |> part1.solve |> Common.writeOut
+input |> part1.solve |> Common.writeOut
 input |> part2.solve |> Common.writeOut
-// let seats = input |> List.map parse
-// part2.adjacents 4 3 seats
-// |> Seq.toList
-// |> printfn "%A"
