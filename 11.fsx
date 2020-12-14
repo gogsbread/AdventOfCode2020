@@ -5,9 +5,6 @@ type Seat =
     | Empty
     | Floor
 
-    static member empty (n: int) (m: int) =
-        List.replicate n (List.replicate m Empty)
-
 let parse (s: string) =
     s.ToCharArray()
     |> Seq.map (fun c ->
