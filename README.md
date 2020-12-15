@@ -8,4 +8,4 @@
 Requires [dotnet5](https://dotnet.microsoft.com/download/dotnet/5.0)
 
 
-Then `echo <input> | dotnet fsi <day>.fsx`. eg: `dotnet fsi 5.fsx`
+Then `echo <input> | dotnet fsi <day>.fsx`. eg: `echo "1" | dotnet fsi 5.fsx`
