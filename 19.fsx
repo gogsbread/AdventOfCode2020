@@ -1,7 +1,8 @@
 #load "common.fs"
 
-open System.Text.RegularExpressions
+open System
 open System.Collections.Generic
+open System.Text.RegularExpressions
 
 type Terminal = string
 type SubRule = int
@@ -89,6 +90,7 @@ module part1 =
         |> List.filter validMessages.Contains).Length
 
 module part2 =
+    // This is a lil wonky solution and suspect that it may not work for some inputs
     let invalid (input: list<string>) =
         let rules =
             input
@@ -104,7 +106,7 @@ module part2 =
         messages
         |> List.filter (validMessages.Contains >> not)
 
-    let eight (input: list<string>) =
+    let solve (input: list<string>) =
         let rules =
             input
             |> List.choose parseRule
@@ -116,24 +118,28 @@ module part2 =
 
         let fortyTwoMessages = eval rules.[42] rules
         let thirtyOneMessages = eval rules.[31] rules
-        fortyTwoMessages @ thirtyOneMessages
-        // for each message 
-        //  length / 8 (len 42 or 31)
-        //  enumerate over n_42 = 3 and n_31 = 1
-        // let invalidMessages = invalid input
+        let invalidMessages = invalid input
+        let rec prefixMatch (s: string) (l: list<Terminal>) =
+            match List.tryFind (fun (ls: string) -> s.StartsWith(ls)) l with
+            | Some m -> prefixMatch s.[m.Length .. ] l
+            | None -> s
 
-        // invalidMessages
-        // |> List.choose
-        //     (fun m ->
-        //         match List.tryFind (fun (ftM: string) -> m.StartsWith(ftM)) fortyTwoMessages with
-        //         | Some _ -> 
-        //             match List.tryFind (fun (toM: string) -> m.EndsWith(toM)) thirtyOneMessages with
-        //             | Some _ -> Some m
-        //             | None -> None
-        //         | None -> None
-        //     )
+        let additional =
+            (invalidMessages
+            |> List.choose
+                (fun m ->
+                    let remaining = prefixMatch m fortyTwoMessages
+                    if String.IsNullOrEmpty(remaining) then
+                        None
+                    else
+                        let rest = prefixMatch remaining thirtyOneMessages
+                        if String.IsNullOrEmpty(rest) then
+                            Some m
+                        else
+                            None
+                )).Length
+        part1.solve input + additional
 
 let input = Common.readIn
-// input  |> List.choose part1.parseRule |> List.iter (printfn "%A")
-// input |> part1.solve |> Common.writeOut
-input |> part2.eight |> List.iter (printfn "%A")
+input |> part1.solve |> Common.writeOut
+input |> part2.solve |> Common.writeOut
