@@ -8,43 +8,143 @@
 
 open System.Text.RegularExpressions
 
-module part1 =
+type TileID = int
 
-    type Tile =
-        | L of int
-        | R of int
-        | T of int
-        | B of int
+let tileRe = Regex(@"Tile (\d+):")
+
+let (|TileHeader|_|) (s: string) =
+    let m = tileRe.Match(s)
+    if m.Success then Some(int m.Groups.[1].Value) else None
+
+let (|TileValue|_|) (s: string) =
+    if s.Trim().Length > 0 then Some s else None
+
+let parse (input: list<string>): Map<TileID, list<string>> =
+    input
+    |> List.fold (fun (cid, acc) s ->
+        match s with
+        | TileHeader id -> (id, Map.add id [] acc)
+        | TileValue s ->
+            let v = acc.[cid] @ [ s ]
+            (cid, Map.add cid v acc)
+        | _ -> (cid, acc)) (-1, Map.empty)
+    |> snd
+
+module part1 =
+    type TileBorder = { L: int; R: int; T: int; B: int }
+
+    type Tile = { ID: TileID; Border: TileBorder }
 
     type Camera =
-        | L of option<int>
-        | R of option<int>
-        | T of option<int>
-        | B of option<int>
+        { ID: TileID
+          L: option<TileID>
+          R: option<TileID>
+          T: option<TileID>
+          B: option<TileID> }
 
-    let tileRe = Regex(@"Tile (\d+):")
+    let solve (input: Map<TileID, list<string>>) =
+        let parseTile (id: TileID) (tile: list<string>): list<Tile> =
+            let folder (acc: int) (c: char) =
+                match c with
+                | '.' -> acc <<< 1
+                | '#' -> (acc <<< 1) ||| 1
+                | _ -> invalidArg "c" "Invalid input"
 
-    let (|TileHeader|_|) (s: string) =
-        let m = tileRe.Match(s)
-        if m.Success then Some(int m.Groups.[1].Value) else None
+            let top = tile.[0] |> Seq.fold folder 0
+            let rtop = tile.[0] |> Seq.rev |> Seq.fold folder 0
 
-    let (|TileValue|_|) (s: string) =
-        if s.Trim().Length > 0 then Some s else None
+            let left =
+                Seq.map (fun (s: string) -> s.[0]) tile
+                |> Seq.fold folder 0
 
-    let parse (input: list<string>): Map<int, list<string>> =
-        input
-        |> List.fold (fun (cid, acc) s ->
-            match s with
-            | TileHeader id -> (id, Map.add id [] acc)
-            | TileValue s ->
-                let v = acc.[cid] @ [ s ]
-                (cid, Map.add cid v acc)
-            | _ -> (cid, acc)) (-1, Map.empty)
-        |> snd
+            let rleft =
+                Seq.map (fun (s: string) -> s.[0]) tile
+                |> Seq.rev
+                |> Seq.fold folder 0
 
-    let parseTileCorners (id: int) (tile: list<string>) =
-        //
-    let solve (input: list<string>) = parse input
+            let right =
+                Seq.map (fun (s: string) -> s.[s.Length - 1]) tile
+                |> Seq.fold folder 0
+
+            let rright =
+                Seq.map (fun (s: string) -> s.[s.Length - 1]) tile
+                |> Seq.rev
+                |> Seq.fold folder 0
+
+            let bottom = Seq.last tile |> Seq.fold folder 0
+
+            let rbottom =
+                Seq.last tile |> Seq.rev |> Seq.fold folder 0
+
+            [ { ID = id
+                Border =
+                    { L = right
+                      R = left
+                      T = rtop
+                      B = rbottom } }
+              { ID = id
+                Border =
+                    { L = rleft
+                      R = rright
+                      T = bottom
+                      B = top } } ]
+
+        let isCameraBorder (camera: Camera) =
+            let l = if camera.L.IsNone then 1 else 0
+            let r = if camera.R.IsNone then 1 else 0
+            let t = if camera.T.IsNone then 1 else 0
+            let b = if camera.B.IsNone then 1 else 0
+            l + r + t + b = 2
+
+        let tiles =
+            input
+            |> Map.toList
+            |> List.collect (fun (id, tile) -> parseTile id tile)
+
+        tiles
+        |> List.map (fun tile ->
+            let border = tile.Border
+
+            let otherTiles = tiles |> List.except [ tile ]
+
+            let left =
+                List.tryFind (fun t ->
+                    border.L = t.Border.L
+                    || border.L = t.Border.R
+                    || border.L = t.Border.T
+                    || border.L = t.Border.B) otherTiles
+
+            let right =
+                List.tryFind (fun t ->
+                    border.R = t.Border.L
+                    || border.R = t.Border.R
+                    || border.R = t.Border.T
+                    || border.R = t.Border.B) otherTiles
+
+            let top =
+                List.tryFind (fun t ->
+                    border.T = t.Border.L
+                    || border.T = t.Border.R
+                    || border.T = t.Border.T
+                    || border.T = t.Border.B) otherTiles
+
+            let bottom =
+                List.tryFind (fun t ->
+                    border.B = t.Border.L
+                    || border.B = t.Border.R
+                    || border.B = t.Border.T
+                    || border.B = t.Border.B) otherTiles
+
+            { ID = tile.ID
+              L = if left.IsSome then Some left.Value.ID else None
+              R = if right.IsSome then Some right.Value.ID else None
+              T = if top.IsSome then Some top.Value.ID else None
+              B = if bottom.IsSome then Some bottom.Value.ID else None })
+
+// |> List.filter isCameraBorder
+// |> List.distinctBy (fun t -> t.ID)
+// |> List.map (fun t -> t.ID)
+// |> List.fold (fun acc id -> acc * int64 id) 1L
 
 let input = Common.readIn
-input |> part1.solve |> Common.writeOut
+input |> parse |> part1.solve |> Common.writeOut
