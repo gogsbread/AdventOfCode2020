@@ -35,51 +35,40 @@ type Camera =
       T: option<TileID>
       B: option<TileID> }
 
-let parseTile (id: TileID) (tile: list<string>): list<Tile> =
+let rotate (tile: seq<seq<char>>) =
+    tile
+    |> Seq.transpose
+    |> Seq.map Seq.rev
+
+let flip (tile: seq<seq<char>>) =
+    tile
+    |> Seq.map Seq.rev
+
+let parseTile (id: TileID) (tile: seq<seq<char>>): Tile =
     let folder (acc: int) (c: char) =
         match c with
         | '.' -> acc <<< 1
         | '#' -> (acc <<< 1) ||| 1
         | _ -> invalidArg "c" "Invalid input"
 
-    let top = tile.[0] |> Seq.fold folder 0
-    let rtop = tile.[0] |> Seq.rev |> Seq.fold folder 0
+    let top = Seq.head tile |> Seq.fold folder 0
 
     let left =
-        Seq.map (fun (s: string) -> s.[0]) tile
-        |> Seq.fold folder 0
-
-    let rleft =
-        Seq.map (fun (s: string) -> s.[0]) tile
-        |> Seq.rev
+        Seq.map Seq.head tile
         |> Seq.fold folder 0
 
     let right =
-        Seq.map (fun (s: string) -> s.[s.Length - 1]) tile
-        |> Seq.fold folder 0
-
-    let rright =
-        Seq.map (fun (s: string) -> s.[s.Length - 1]) tile
-        |> Seq.rev
+        Seq.map Seq.last tile
         |> Seq.fold folder 0
 
     let bottom = Seq.last tile |> Seq.fold folder 0
 
-    let rbottom =
-        Seq.last tile |> Seq.rev |> Seq.fold folder 0
-
-    [ { ID = id
-        Border =
-            { L = right
-              R = left
-              T = rtop
-              B = rbottom } }
-      { ID = id
-        Border =
-            { L = rleft
-              R = rright
-              T = bottom
-              B = top } } ]
+    { ID = id
+      Border =
+            { L = left
+              R = right
+              T = top
+              B = bottom } }
 
 let isCameraBorder (camera: Camera) =
     let l = if camera.L.IsNone then 1 else 0
@@ -91,7 +80,7 @@ let isCameraBorder (camera: Camera) =
 let camera (tile: Tile) (tiles: list<Tile>)=
         let border = tile.Border
 
-        let otherTiles = tiles |> List.except [ tile ]
+        let otherTiles = tiles |> List.filter (fun t -> t.ID <> tile.ID)
 
         let left =
             List.tryFind (fun t ->
@@ -131,30 +120,82 @@ let rec cameraArray (connectingCameras: list<Camera>) (cameras: list<Camera>) =
     match connectingCameras with
     | [] -> []
     | head::rest -> 
-        printfn "%A" head 
-        printfn "%A" cameras
-        let l = if head.L.IsSome then [(List.find (fun c -> c.ID = head.L.Value && c.R.IsSome && c.R.Value = head.ID) cameras)] else []
-        let r = if head.R.IsSome then [(List.find (fun c -> c.ID = head.R.Value && c.L.IsSome && c.L.Value = head.ID) cameras)] else []
-        let t = if head.T.IsSome then [(List.find (fun c -> c.ID = head.T.Value && c.B.IsSome && c.B.Value = head.ID) cameras)] else []
-        let b = if head.B.IsSome then [(List.find (fun c -> c.ID = head.B.Value && c.T.IsSome && c.T.Value = head.ID) cameras)] else []
+        // printfn "%A" head 
+        // printfn "%A" cameras
+        let l = if head.L.IsSome && List.exists (fun c -> c.ID = head.L.Value) cameras then [(List.find (fun c -> c.ID = head.L.Value && c.R.IsSome && c.R.Value = head.ID) cameras)] else []
+        let r = if head.R.IsSome && List.exists (fun c -> c.ID = head.R.Value) cameras then [(List.find (fun c -> c.ID = head.R.Value && c.L.IsSome && c.L.Value = head.ID) cameras)] else []
+        let t = if head.T.IsSome && List.exists (fun c -> c.ID = head.T.Value) cameras then [(List.find (fun c -> c.ID = head.T.Value && c.B.IsSome && c.B.Value = head.ID) cameras)] else []
+        let b = if head.B.IsSome && List.exists (fun c -> c.ID = head.B.Value) cameras then [(List.find (fun c -> c.ID = head.B.Value && c.T.IsSome && c.T.Value = head.ID) cameras)] else []
         let more = rest @ l @ r @ b @ t
-        head::cameraArray more cameras
+        head::(cameraArray more (List.filter (fun c -> c.ID <> head.ID) cameras))
 
 module part1 =
-    // Since part1 asks for corners, this partial construction will work.
-    // for part2, I have to rotate in all directions and flip rotate in all directions
     let solve (input: Map<TileID, list<string>>) =
         let tiles =
             input
-            |> Map.toList
-            |> List.collect (fun (id, tile) -> parseTile id tile)
+            |> Seq.collect (fun x ->
+                let tid = x.Key
+                let tile =  (x.Value |> Seq.map (fun x -> Seq.map id x))
+                let flipped = flip tile
+                seq {
+                        yield tid, tile
+                        yield tid, rotate tile
+                        yield tid, (rotate >> rotate) tile
+                        yield tid, (rotate >> rotate >> rotate) tile
+                        yield tid, flipped
+                        yield tid, rotate flipped
+                        yield tid, (rotate >> rotate) flipped
+                        yield tid, (rotate >> rotate >> rotate) flipped
+                    }
+               )
+            |> Seq.map (fun (id, tile) -> parseTile id tile)
+            |> Seq.toList
 
-        tiles
-        |> List.map (fun t -> camera t tiles)
+        let cameras =
+            tiles
+            |> List.map (fun t -> camera t tiles)
+
+        cameraArray [cameras.Head] cameras
         |> List.filter isCameraBorder
         |> List.distinctBy (fun t -> t.ID)
         |> List.map (fun t -> t.ID)
         |> List.fold (fun acc id -> acc * int64 id) 1L
 
+module part2 =
+    // get the map input
+    // rotate in all directions and for each direction get the corner
+    // flip horizontally and roate in all directions and for each rotation get the corners
+    // construct the grid that way
+    let solve (input: Map<TileID, list<string>>) =
+        let tiles =
+            input
+            |> Seq.collect (fun x ->
+                let tid = x.Key
+                let tile =  (x.Value |> Seq.map (fun x -> Seq.map id x))
+                let flipped = flip tile
+                seq {
+                        yield tid, tile
+                        yield tid, rotate tile
+                        yield tid, (rotate >> rotate) tile
+                        yield tid, (rotate >> rotate >> rotate) tile
+                        yield tid, flipped
+                        yield tid, rotate flipped
+                        yield tid, (rotate >> rotate) flipped
+                        yield tid, (rotate >> rotate >> rotate) flipped
+                    }
+               )
+            |> Seq.map (fun (id, tile) -> parseTile id tile)
+            |> Seq.toList
+
+        let cameras =
+            tiles
+            |> List.map (fun t -> camera t tiles)
+
+        cameraArray [cameras.Head] cameras
+        // Do the camera array and get the corner tiles
+        // then do the monster detection of part2
+
 let input = Common.readIn
 input |> parse |> part1.solve |> Common.writeOut
+// input |> parse |> part2.solve |> Common.writeOut
+
